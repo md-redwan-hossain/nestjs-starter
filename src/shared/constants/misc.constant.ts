@@ -1,0 +1,1 @@
+export const MAX_INT_RANGE = 2147483647;

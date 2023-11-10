@@ -1,0 +1,9 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: monthly
+      day: "friday"
+      timezone: "Asia/Dhaka"
+      time: "06:00"

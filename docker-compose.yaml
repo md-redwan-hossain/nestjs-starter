@@ -1,0 +1,46 @@
+version: "3"
+services:
+  postgres_db:
+    image: bitnami/postgresql:15
+    restart: unless-stopped
+    environment:
+      POSTGRESQL_USERNAME: super-admin
+      POSTGRES_PASSWORD: super-password
+      POSTGRESQL_DATABASE: starter
+      POSTGRESQL_TIMEZONE: "Asia/Dhaka"
+    ports:
+      - "5432:5432"
+    volumes:
+      - "postgres_data:/bitnami/postgresql"
+
+  mongo_db:
+    image: "bitnami/mongodb:7.0"
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - "mongo_data:/bitnami/mongodb"
+    environment:
+      - ALLOW_EMPTY_PASSWORD=no
+      - MONGODB_ROOT_PASSWORD=root-password
+      - MONGODB_USERNAME=super-admin
+      - MONGODB_PASSWORD=super-password
+      - MONGODB_DATABASE=starter
+
+  redis_db:
+    image: "bitnami/redis:7.2"
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - "redis_data:/bitnami/redis/data"
+    environment:
+      REDIS_PASSWORD: admin
+      REDIS_IO_THREADS: 4
+      REDIS_IO_THREADS_DO_READS: yes
+      REDIS_DISABLE_COMMANDS: FLUSHDB,FLUSHALL
+
+volumes:
+  postgres_data:
+  redis_data:
+  mongo_data:
