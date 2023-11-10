@@ -50,4 +50,6 @@ docker compose up -d
 docker compose stop
 ```
 
-**If you are running the database for the first time, you need to apply the `migration.sql` file to the database.**
+- **If you are running the database for the first time, you need to apply the `migration.sql` file to the database.**
+
+- **To pull all database tables as Drizzle schema, run `npx drizzle-kit introspect:pg`**
