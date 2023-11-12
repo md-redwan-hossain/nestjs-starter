@@ -56,7 +56,7 @@ docker compose stop
 
 - **To pull all database tables as Drizzle schema, run `npx drizzle-kit introspect:pg`**
 
-### **The API is completely documented with proper types, head over to http://127.0.0.1:3000/api-doc for comprehensive reference.**
+- **The API is completely documented with proper types, head over to http://127.0.0.1:3000/api-doc for comprehensive reference.**
 
 ## Json Web Token (JWT) authentication
 
