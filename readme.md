@@ -88,3 +88,5 @@ docker compose stop
 - After setting up TOTP with the data described above, you have to send the 30 second lived numeric token every time you do a login.
 
 - After the initial successful login, an email will be send with a verification code. Use that code to active your account by sending a POST request to the `verify` route.
+
+- If you do not have access to TOTP token, you can use one of the recovery codes in `2fa-recovery-code-login` route. Each used recovery code can not be used again since it will be removed from the database after successful use. Keep in mind, this route can only be used after activating TOTP in your account.
