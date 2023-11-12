@@ -84,6 +84,13 @@ export class StuffService {
     return data?.Id ? data : null;
   }
 
+  async checkActivation(id: string | UUID): Promise<typeof Stuffs.$inferSelect> {
+    const entity = await this.findOneById(id);
+    if (!entity) throw new NotFoundException("No Stuff found with the given Id");
+    if (entity.IsDeactivated) throw new BadRequestException("Account is not activated");
+    return entity;
+  }
+
   async update(
     id: string | UUID,
     updateStuffDto: UpdateStuffDto
@@ -106,8 +113,7 @@ export class StuffService {
   }
 
   private async validatePasswordChange(id: string | UUID, dto: ChangePasswordDto) {
-    const stuff = await this.findOneById(id);
-    if (!stuff) throw new NotFoundException("No Stuff found with the given Id");
+    const stuff = await this.checkActivation(id);
     const isValidPassword = await this.authService.validatePassword(
       stuff.Password,
       dto.OldPassword

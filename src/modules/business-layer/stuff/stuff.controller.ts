@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpStatus,
   Patch,
@@ -16,6 +17,7 @@ import {
   ApiConsumes,
   ApiCreatedResponse,
   ApiForbiddenResponse,
+  ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -159,7 +161,7 @@ export class StuffController {
   @ApiBadRequestResponse()
   @ApiUnauthorizedResponse()
   @ApiForbiddenResponse()
-  async resetPassword(
+  async changePassword(
     @Body(new ValidationPipe(defaultValidationPipeRules), DisallowSameOldAndNewPasswordPipe)
     changePasswordDto: ChangePasswordDto,
     @Req() request: Request,
@@ -186,8 +188,15 @@ export class StuffController {
   @ApiForbiddenResponse()
   async findOne(@Req() request: Request, @Res() response: Response) {
     const stuff = await this.stuffService.findOneById(request?.user?.Id as string);
-    if (stuff) response.status(HttpStatus.OK).send(new ResponseStuffDto(stuff));
-    else response.status(HttpStatus.NOT_FOUND).end();
+    if (!stuff) {
+      return response.status(HttpStatus.NOT_FOUND).end();
+    }
+
+    if (stuff.IsDeactivated) {
+      return response.status(HttpStatus.BAD_REQUEST).send("Account is not activated");
+    }
+
+    response.status(HttpStatus.OK).send(new ResponseStuffDto(stuff));
   }
 
   @AllowedRoles([USER_ROLE.SUPER_ADMIN, USER_ROLE.ADMIN, USER_ROLE.MODERATOR])
@@ -206,31 +215,42 @@ export class StuffController {
     @Req() request: Request,
     @Res() response: Response
   ) {
-    if (Object.keys(updateStuffDto).length === 0) response.status(HttpStatus.NOT_MODIFIED).end();
-    else {
-      const stuff = await this.stuffService.findOneById(request?.user?.Id as string);
-      if (!stuff) response.status(HttpStatus.NOT_FOUND).end();
-      else {
-        const updatedData = await this.stuffService.update(stuff.Id, updateStuffDto);
-        if (updatedData) response.status(HttpStatus.OK).send(new ResponseStuffDto(updatedData));
-        else response.status(HttpStatus.BAD_REQUEST).end();
-      }
+    if (Object.keys(updateStuffDto).length === 0) {
+      return response.status(HttpStatus.NOT_MODIFIED).end();
     }
+
+    const stuff = await this.stuffService.findOneById(request?.user?.Id as string);
+    if (!stuff) return response.status(HttpStatus.NOT_FOUND).end();
+
+    if (stuff.IsDeactivated) {
+      return response.status(HttpStatus.BAD_REQUEST).send("Account is not activated");
+    }
+
+    const updatedData = await this.stuffService.update(stuff.Id, updateStuffDto);
+    if (updatedData) response.status(HttpStatus.OK).send(new ResponseStuffDto(updatedData));
+    else response.status(HttpStatus.BAD_REQUEST).end();
   }
 
-  //  @AllowedRoles([USER_ROLE.SUPER_ADMIN, USER_ROLE.ADMIN, USER_ROLE.MODERATOR])
-  // @UseGuards(RoleGuard)
-  // @UseGuards(JwtAuthGuard)
-  // @Delete("profile")
-  // @ApiBearerAuth()
-  // @ApiOperation({ summary: "Delete stuff" })
-  // @ApiNoContentResponse()
-  // @ApiNotFoundResponse()
-  // @ApiUnauthorizedResponse()
-  // @ApiForbiddenResponse()
-  // async remove(@Req() request: Request, @Res() response: Response) {
-  //   const status = await this.stuffService.remove(request?.user?.Id as string);
-  //   if (status) response.status(HttpStatus.NO_CONTENT).end();
-  //   else response.status(HttpStatus.NOT_FOUND).end();
-  // }
+  @AllowedRoles([USER_ROLE.SUPER_ADMIN, USER_ROLE.ADMIN, USER_ROLE.MODERATOR])
+  @UseGuards(RoleGuard)
+  @UseGuards(JwtAuthGuard)
+  @Delete("profile")
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Delete stuff" })
+  @ApiNoContentResponse()
+  @ApiNotFoundResponse()
+  @ApiUnauthorizedResponse()
+  @ApiForbiddenResponse()
+  async remove(@Req() request: Request, @Res() response: Response) {
+    const stuff = await this.stuffService.findOneById(request?.user?.Id as string);
+    if (!stuff) return response.status(HttpStatus.NOT_FOUND).end();
+
+    if (stuff.IsDeactivated) {
+      return response.status(HttpStatus.BAD_REQUEST).send("Account is not activated");
+    }
+
+    const status = await this.stuffService.remove(request?.user?.Id as string);
+    if (status) response.status(HttpStatus.NO_CONTENT).end();
+    else response.status(HttpStatus.NOT_FOUND).end();
+  }
 }
