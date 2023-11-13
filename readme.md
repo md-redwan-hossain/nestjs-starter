@@ -95,7 +95,19 @@ docker compose stop
 
 **To reduce boilerplate codes, various Custom Decorators are provided.**
 
-`@JwtRbacAuth(roles: USER_ROLE[])`: This custom decorator takes the same argument as `AllowedRoles`. It wraps up JWT and RBAC along with proper response decorators.
+`@JwtRbacAuth(roles: USER_ROLE[])`: This custom decorator takes the same arguments as `AllowedRoles`. It wraps up JWT and RBAC along with proper response decorators. Simply call it on top of controller route handler method.
+
+```typescript
+  @JwtRbacAuth([USER_ROLE.SUPER_ADMIN, USER_ROLE.ADMIN])
+  @Get("profile")
+  @ApiOperation({ summary: "stuff profile" })
+  @ApiOkResponse({ type: ResponseStuffDto })
+  @ApiNotFoundResponse()
+  @ApiBadRequestResponse()
+  async findOne(@UserId() id: string, @Res() response: Response) {}
+```
+
+The implementation of this decorator is given below:
 
 ```typescript
 export function JwtRbacAuth(roles: USER_ROLE[]) {
