@@ -183,11 +183,19 @@ export class StuffService {
     return data?.Id ? data : null;
   }
 
+  async verifyRole(entity: typeof Stuffs.$inferSelect) {
+    const validRoles = [USER_ROLE.SUPER_ADMIN, USER_ROLE.ADMIN, USER_ROLE.MODERATOR];
+    return validRoles.some((role) => role === entity.Role);
+  }
+
   async validateLogin(
     twoFactorDto: TwoFactorAuthenticationDto
   ): Promise<typeof Stuffs.$inferSelect | null> {
     const stuff = await this.findOneByEmail(twoFactorDto.Email);
+
     if (!stuff) return null;
+    if (!this.verifyRole(stuff)) return null;
+
     const isValidPassword = await this.authService.validatePassword(
       stuff.Password,
       twoFactorDto.Password
