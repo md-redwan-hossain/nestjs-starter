@@ -90,3 +90,34 @@ docker compose stop
 - After the initial successful login, an email will be send with a verification code. Use that code to active your account by sending a POST request to the `verify` route.
 
 - If you do not have access to TOTP token, you can use one of the recovery codes in `2fa-recovery-code-login` route. Each used recovery code can not be used again since it will be removed from the database after successful use. Keep in mind, this route can only be used after activating TOTP in your account.
+
+## Custom Decorators
+
+**To reduce boilerplate codes, various Custom Decorators are provided.**
+
+`@JwtRbacAuth(roles: USER_ROLE[])`: This custom decorator takes the same argument as `AllowedRoles`. It wraps up JWT and RBAC along with proper response decorators.
+
+```typescript
+export function JwtRbacAuth(roles: USER_ROLE[]) {
+  return applyDecorators(
+    AllowedRoles(roles),
+    UseGuards(JwtAuthGuard),
+    UseGuards(RoleGuard),
+    ApiBearerAuth(),
+    ApiUnauthorizedResponse(),
+    ApiForbiddenResponse()
+  );
+}
+```
+
+`@UserId()`: This custom decorator doesnot take any argument. It must be used with `JwtRbacAuth` or `UseGuards(JwtAuthGuard)` because it fetches `user.Id` from `request` object. Simply call it in a controller route handler method argument.
+
+```typescript
+async findOne(@UserId() id: string) { }
+```
+
+`@UserData(data: "Id"|"Role")`: This custom decorator takes `"Id"` or `"Role"` as argument. It must be used with `JwtRbacAuth` or `UseGuards(JwtAuthGuard)` because it fetches `"Id"` or `"Role"` from `request.user` object. Simply call it in a controller route handler method argument.
+
+```typescript
+async findOne(@UserData("Role") role: string) { }
+```

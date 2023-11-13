@@ -26,9 +26,11 @@ import {
   ApiUnauthorizedResponse
 } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
-import { Request, Response } from "express";
+import { Request, Response, request } from "express";
 import ms from "ms";
 import { defaultValidationPipeRules } from "../../../shared/constants/default-validation-pipe-rules.constant";
+import { JwtRbacAuth } from "../../../shared/decorators/jwt-rbac-auth.decorator";
+import { UserId } from "../../../shared/decorators/user-id.decorator";
 import { USER_ROLE } from "../../../shared/enums/user-role.enum";
 import { DisallowSameOldAndNewPasswordPipe } from "../../../shared/pipes/disallow-same-old-and-new-password.pipe";
 import { AllowedRoles } from "../../internal-layer/auth/decorators/allowed-roles.decorator";
@@ -140,13 +142,10 @@ export class StuffController {
   async verifyAccount(
     @Body(new ValidationPipe(defaultValidationPipeRules))
     accountVerificationDto: AccountVerificationDto,
-    @Req() request: Request,
+    @UserId() id: string,
     @Res() response: Response
   ) {
-    const status = await this.stuffService.verifyAccount(
-      accountVerificationDto,
-      request?.user?.Id as string
-    );
+    const status = await this.stuffService.verifyAccount(accountVerificationDto, id);
     if (status) response.status(HttpStatus.OK).json({ message: "successfully verified" }).end();
     else response.status(HttpStatus.UNAUTHORIZED).end();
   }
@@ -164,30 +163,22 @@ export class StuffController {
   async changePassword(
     @Body(new ValidationPipe(defaultValidationPipeRules), DisallowSameOldAndNewPasswordPipe)
     changePasswordDto: ChangePasswordDto,
-    @Req() request: Request,
+    @UserId() id: string,
     @Res() response: Response
   ) {
-    const status = await this.stuffService.changePassword(
-      request?.user?.Id as string,
-      changePasswordDto
-    );
+    const status = await this.stuffService.changePassword(id, changePasswordDto);
     if (status) response.status(HttpStatus.OK).end();
     else response.status(HttpStatus.BAD_REQUEST).end();
   }
 
-  @AllowedRoles([USER_ROLE.SUPER_ADMIN, USER_ROLE.ADMIN, USER_ROLE.MODERATOR])
-  @UseGuards(RoleGuard)
-  @UseGuards(JwtAuthGuard)
+  @JwtRbacAuth([USER_ROLE.SUPER_ADMIN, USER_ROLE.ADMIN, USER_ROLE.MODERATOR])
   @Get("profile")
-  @ApiBearerAuth()
   @ApiOperation({ summary: "stuff profile" })
   @ApiOkResponse({ type: ResponseStuffDto })
   @ApiNotFoundResponse()
   @ApiBadRequestResponse()
-  @ApiUnauthorizedResponse()
-  @ApiForbiddenResponse()
-  async findOne(@Req() request: Request, @Res() response: Response) {
-    const stuff = await this.stuffService.findOneById(request?.user?.Id as string);
+  async findOne(@UserId() id: string, @Res() response: Response) {
+    const stuff = await this.stuffService.findOneById(id);
     if (!stuff) {
       return response.status(HttpStatus.NOT_FOUND).end();
     }
@@ -212,14 +203,14 @@ export class StuffController {
   @ApiForbiddenResponse()
   async update(
     @Body(new ValidationPipe(defaultValidationPipeRules)) updateStuffDto: UpdateStuffDto,
-    @Req() request: Request,
+    @UserId() id: string,
     @Res() response: Response
   ) {
     if (Object.keys(updateStuffDto).length === 0) {
       return response.status(HttpStatus.NOT_MODIFIED).end();
     }
 
-    const stuff = await this.stuffService.findOneById(request?.user?.Id as string);
+    const stuff = await this.stuffService.findOneById(id);
     if (!stuff) return response.status(HttpStatus.NOT_FOUND).end();
 
     if (stuff.IsDeactivated) {
@@ -241,8 +232,8 @@ export class StuffController {
   @ApiNotFoundResponse()
   @ApiUnauthorizedResponse()
   @ApiForbiddenResponse()
-  async remove(@Req() request: Request, @Res() response: Response) {
-    const stuff = await this.stuffService.findOneById(request?.user?.Id as string);
+  async remove(@UserId() id: string, @Res() response: Response) {
+    const stuff = await this.stuffService.findOneById(id);
     if (!stuff) return response.status(HttpStatus.NOT_FOUND).end();
 
     if (stuff.IsDeactivated) {

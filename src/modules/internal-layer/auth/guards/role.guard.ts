@@ -1,9 +1,9 @@
 import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Reflector } from "@nestjs/core";
+import { Request } from "express";
 import { EnvVariable } from "../../../../shared/enums/env-variable.enum";
 import { USER_ROLE } from "../../../../shared/enums/user-role.enum";
-
 @Injectable()
 export class RoleGuard implements CanActivate {
   constructor(
@@ -17,7 +17,7 @@ export class RoleGuard implements CanActivate {
 
     if (roleCount === 0) return true;
 
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<Request>();
 
     const envInRequest = request?.user?.Env;
     const roleInRequest = request?.user?.Role;
