@@ -1,19 +1,19 @@
-import { ExpressAdapter } from "@bull-board/express";
-import { BullBoardModule } from "@bull-board/nestjs";
 import { BullModule } from "@nestjs/bullmq";
 import { CacheModule } from "@nestjs/cache-manager";
 import { Module, OnModuleInit } from "@nestjs/common";
-import { ConfigModule, ConfigService } from "@nestjs/config";
+import { ConfigModule } from "@nestjs/config";
 import { APP_FILTER, APP_GUARD } from "@nestjs/core";
 import { EventEmitterModule } from "@nestjs/event-emitter";
 import { MongooseModule } from "@nestjs/mongoose";
 import { ScheduleModule } from "@nestjs/schedule";
-import { ThrottlerGuard, ThrottlerModule, seconds } from "@nestjs/throttler";
-import { redisStore } from "cache-manager-ioredis-yet";
+import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { sql } from "drizzle-orm";
 import { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import Joi from "joi";
-import { ThrottlerStorageRedisService } from "nestjs-throttler-storage-redis";
+import { BullmqConfig } from "./configs/bullmq.config";
+import { CacheModuleConfig } from "./configs/cache-module.config";
+import { MongooseConfig } from "./configs/mongoose.config";
+import { ThrottlerConfig } from "./configs/throttler.config";
 import { StuffModule } from "./modules/business-layer/stuff/stuff.module";
 import { DataLayerModule } from "./modules/data-layer/data-layer.module";
 import { DrizzleQueryBuilderSyntax } from "./modules/data-layer/drizzle.decorator";
@@ -21,14 +21,11 @@ import { AuthModule } from "./modules/internal-layer/auth/auth.module";
 import { EmailSenderModule } from "./modules/internal-layer/email-sender/email-sender.module";
 import { HealthCheckerModule } from "./modules/internal-layer/health-checker/health-checker.module";
 import { LoggingModule } from "./modules/internal-layer/logging/logging.module";
-import { defaultRedisConnectionOptions } from "./shared/constants/default-redis-connection-options.constant";
-import { EnvVariable } from "./shared/enums/env-variable.enum";
 import { GlobalExceptionFilter } from "./shared/exception-filters/global-exception.filter";
 import { JsonWebTokenExceptionFilter } from "./shared/exception-filters/jsonwebtoken-exception.filter";
 import { MongoExceptionFilter } from "./shared/exception-filters/mongo-exception.filter";
 import { MongooseExceptionFilter } from "./shared/exception-filters/mongoose-exception.filter";
 import { PostgresExceptionFilter } from "./shared/exception-filters/postgres-exception.filter";
-import { redisUrlParser } from "./shared/utils/helpers/redis-utils";
 
 @Module({
   imports: [
@@ -59,83 +56,24 @@ import { redisUrlParser } from "./shared/utils/helpers/redis-utils";
       }
     }),
 
-    MongooseModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => {
-        const loggingDbUrl = configService.getOrThrow(EnvVariable.LOGGING_DATABASE_URL);
-
-        return {
-          uri: loggingDbUrl,
-          serverSelectionTimeoutMS: 5000,
-          retryAttempts: 1,
-          retryDelay: 2000,
-          lazyConnection: false
-        };
-      }
-    }),
-
-    ThrottlerModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => {
-        const redisThrottleUrl = configService.getOrThrow(EnvVariable.REDIS_THROTTLE_URL);
-
-        return {
-          storage: new ThrottlerStorageRedisService({
-            ...redisUrlParser(redisThrottleUrl),
-            ...defaultRedisConnectionOptions()
-          }),
-          throttlers: [
-            {
-              ttl: seconds(parseInt(configService.getOrThrow(EnvVariable.THROTTLE_TTL_SECOND))),
-              limit: parseInt(configService.getOrThrow(EnvVariable.THROTTLE_LIMIT))
-            }
-          ]
-        };
-      }
-    }),
-
-    CacheModule.registerAsync({
-      inject: [ConfigService],
-      isGlobal: true,
-      useFactory: async (configService: ConfigService) => {
-        const redisParsedUrlCache = configService.getOrThrow(EnvVariable.REDIS_CACHE_URL);
-
-        return {
-          store: await redisStore({
-            ...redisUrlParser(redisParsedUrlCache),
-            ...defaultRedisConnectionOptions()
-          })
-        };
-      }
-    }),
-
-    BullModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => {
-        const redisParsedUrlBullmq = configService.getOrThrow(EnvVariable.REDIS_BULLMQ_URL);
-
-        return {
-          connection: {
-            ...redisUrlParser(redisParsedUrlBullmq),
-            ...defaultRedisConnectionOptions(true)
-          }
-        };
-      }
-    }),
-
-    BullBoardModule.forRoot({
-      route: "/queues",
-      adapter: ExpressAdapter
-    }),
-
-    EventEmitterModule.forRoot(),
+    MongooseModule.forRootAsync({ useClass: MongooseConfig }),
+    ThrottlerModule.forRootAsync({ useClass: ThrottlerConfig }),
+    CacheModule.registerAsync({ isGlobal: true, useClass: CacheModuleConfig }),
+    BullModule.forRootAsync({ useClass: BullmqConfig }),
+    EventEmitterModule.forRoot({ global: true }),
     ScheduleModule.forRoot(),
+
+    // Internal
     LoggingModule,
-    DataLayerModule,
-    AuthModule,
-    StuffModule,
     HealthCheckerModule,
-    EmailSenderModule
+    EmailSenderModule,
+    AuthModule,
+
+    // Data
+    DataLayerModule,
+
+    //Business
+    StuffModule
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
