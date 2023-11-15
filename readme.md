@@ -30,7 +30,12 @@
 
 - Fully documented API with Swagger at http://127.0.0.1:3000/api-doc for comprehensive reference.
 
-## configuring environment variables
+
+## Note for windows:
+To achieve 20X speed, this repo utilizes SWC compiler instead of the default TSC compiler to compile Typescript to Javascript. In windows, You must install [Microsoft Visual C++ Redistributable]( https://aka.ms/vs/17/release/vc_redist.x64.exe) to work with SWC compiler.
+
+
+## Configuring environment variables
 
 - create `.env.dev` and `env.prod` files from .env.example
 - then initilize `.env.dev` and `env.prod` files with proper values
