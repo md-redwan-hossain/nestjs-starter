@@ -30,10 +30,13 @@
 
 - Fully documented API with Swagger at http://127.0.0.1:3000/api-doc for comprehensive reference.
 
+## Note about SWC compiler:
 
-## Note for windows:
-To achieve 20X speed, this repo utilizes SWC compiler instead of the default TSC compiler to compile Typescript to Javascript. In windows, You must install [Microsoft Visual C++ Redistributable]( https://aka.ms/vs/17/release/vc_redist.x64.exe) to work with SWC compiler.
+- To achieve 20X speed, this repo utilizes SWC compiler instead of the default TSC compiler to compile Typescript to Javascript.
 
+- In windows, You must install [Microsoft Visual C++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe) to work with SWC compiler.
+
+- In any type of build error, remove `node_modules` folder and run `npm install` to install the dependencies again. This type of error can arise when you switch platform like linux to windows and vice-versa.
 
 ## Configuring environment variables
 
