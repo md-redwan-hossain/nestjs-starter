@@ -35,11 +35,18 @@ export class JwtAuthGuard implements CanActivate {
       secret: this.configService.getOrThrow(EnvVariable.JWT_SECRET)
     });
 
+    const envInRequest = payload?.Env;
+
+    if (this.configService.getOrThrow(EnvVariable.NODE_ENV) !== envInRequest) {
+      throw new UnauthorizedException("mismatch in token Env");
+    }
+
     const blackListStatus = await this.authService.tokenBlacklistedStatus(token);
     if (blackListStatus) throw new UnauthorizedException("access_token is blacklisted");
 
     Object.assign(request, { user: payload });
     Object.assign(request, { jwt: token });
+
     return true;
   }
 }
