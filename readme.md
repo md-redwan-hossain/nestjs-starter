@@ -4,6 +4,8 @@
 
 - Modular architecture adhering to SOLID principles for enhanced scalability and maintainability.
 
+- Complete Admin functionality with REST endpoints labelled as Stuff. Stuff can be three types: SuperAdmin, Admin, Moderator.
+
 - Postgresql as the primary Database with Drizzle ORM.
 
 - Structured logging with MongoDB, ensuring comprehensive system behavior analysis.
