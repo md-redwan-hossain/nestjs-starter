@@ -16,7 +16,7 @@ export class RoleGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean | Promise<boolean> {
     const userRoles = this.reflector.get<USER_ROLE[]>(USER_ROLES_TOKEN, context.getHandler());
     const roleCount = userRoles.length;
-    console.log(userRoles);
+    
     if (roleCount === 0) return true;
 
     const request = context.switchToHttp().getRequest();
