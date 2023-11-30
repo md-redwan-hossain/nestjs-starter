@@ -6,15 +6,15 @@ import {
   Injectable
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import { USER_ROLE } from "../../../data-layer/drizzle/types";
-import { USER_ROLES_TOKEN } from "../decorators/allowed-roles.decorator";
+import { USER_ROLE } from "../../../../shared/enums/user-role.enum";
+import { USER_ROLES_DI_TOKEN } from "../decorators/allowed-roles.decorator";
 
 @Injectable()
 export class RoleGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean | Promise<boolean> {
-    const userRoles = this.reflector.get<USER_ROLE[]>(USER_ROLES_TOKEN, context.getHandler());
+    const userRoles = this.reflector.get<USER_ROLE[]>(USER_ROLES_DI_TOKEN, context.getHandler());
     const roleCount = userRoles.length;
 
     if (roleCount === 0) return true;

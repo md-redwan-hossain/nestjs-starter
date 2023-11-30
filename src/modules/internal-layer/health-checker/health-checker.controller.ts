@@ -1,22 +1,17 @@
-import { Controller, Get, HttpStatus, Res, UseGuards, VERSION_NEUTRAL } from "@nestjs/common";
+import { Controller, Get, HttpStatus, Res, VERSION_NEUTRAL } from "@nestjs/common";
 import {
   ApiBadGatewayResponse,
-  ApiBearerAuth,
   ApiConsumes,
-  ApiForbiddenResponse,
   ApiOkResponse,
   ApiOperation,
   ApiProduces,
-  ApiTags,
-  ApiUnauthorizedResponse
+  ApiTags
 } from "@nestjs/swagger";
 import { HealthCheck, HealthCheckService } from "@nestjs/terminus";
 import { Throttle, seconds } from "@nestjs/throttler";
 import { Response } from "express";
+import { JwtRbacAuth } from "../../../shared/decorators/jwt-rbac-auth.decorator";
 import { USER_ROLE } from "../../../shared/enums/user-role.enum";
-import { AllowedRoles } from "../../internal-layer/auth/decorators/allowed-roles.decorator";
-import { JwtAuthGuard } from "../../internal-layer/auth/guards/jwt-auth.guard";
-import { RoleGuard } from "../../internal-layer/auth/guards/role.guard";
 import { DrizzleHealthIndicator } from "./drizzle.health";
 
 @ApiTags("health-checker")
@@ -38,13 +33,8 @@ export class HealthCheckerController {
     response.status(HttpStatus.OK).end();
   }
 
-  @AllowedRoles([USER_ROLE.SUPER_ADMIN, USER_ROLE.ADMIN, USER_ROLE.MODERATOR])
-  @UseGuards(RoleGuard)
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
+  @JwtRbacAuth([USER_ROLE.SUPER_ADMIN, USER_ROLE.ADMIN, USER_ROLE.MODERATOR])
   @ApiOkResponse()
-  @ApiUnauthorizedResponse()
-  @ApiForbiddenResponse()
   @ApiOperation({ summary: "check database status" })
   @Get("db")
   @HealthCheck()

@@ -61,7 +61,6 @@ export class StuffCrudRepository
       .delete(this.entity)
       .where(eq(this.entity.Id, id))
       .returning({ Id: this.entity.Id });
-
     return data?.Id ? true : false;
   }
 }
