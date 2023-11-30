@@ -16,25 +16,24 @@ export const Stuffs = pgTable(
   "Stuffs",
   {
     Id: uuid("Id").primaryKey().notNull(),
-    CreatedAt: timestamp("CreatedAt", { withTimezone: true, mode: "string" })
-      .defaultNow()
-      .notNull(),
+    Role: EUserRole("Role").default("Moderator").notNull(),
+    ApproverId: uuid("ApproverId"),
+    Email: varchar("Email", { length: 254 }).notNull(),
+    MobileNumber: varchar("MobileNumber", { length: 14 }),
+    Bio: varchar("Bio", { length: 1000 }),
+    CreatedAt: timestamp("CreatedAt", { withTimezone: true, mode: "string" }).notNull(),
     UpdatedAt: timestamp("UpdatedAt", { withTimezone: true, mode: "string" }),
     FullName: varchar("FullName", { length: 100 }).notNull(),
     Password: text("Password").notNull(),
     DateOfBirth: timestamp("DateOfBirth", { withTimezone: true, mode: "string" }).notNull(),
-    Bio: varchar("Bio", { length: 1200 }),
-    Role: EUserRole("Role").default("Moderator").notNull(),
+    ProfilePicture: varchar("ProfilePicture", { length: 500 }),
     Gender: EGender("Gender").notNull(),
+    AuthenticatorKey: text("AuthenticatorKey"),
+    RecoveryCodes: text("RecoveryCodes").array(),
+    IsTwoFactorAuthConfirmed: boolean("IsTwoFactorAuthConfirmed").default(false).notNull(),
     IsVerified: boolean("IsVerified").default(false).notNull(),
     IsBanned: boolean("IsBanned").default(false).notNull(),
-    IsDeactivated: boolean("IsDeactivated").default(false).notNull(),
-    ApproverId: uuid("ApproverId"),
-    Email: varchar("Email", { length: 254 }).notNull(),
-    MobileNumber: varchar("MobileNumber", { length: 14 }),
-    IsTwoFactorAuthConfirmed: boolean("IsTwoFactorAuthConfirmed").default(false).notNull(),
-    AuthenticatorKey: text("AuthenticatorKey").notNull(),
-    RecoveryCodes: text("RecoveryCodes").array().notNull()
+    IsDeactivated: boolean("IsDeactivated").default(false).notNull()
   },
   (table) => {
     return {

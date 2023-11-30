@@ -26,6 +26,8 @@ import { JsonWebTokenExceptionFilter } from "./shared/exception-filters/jsonwebt
 import { MongoExceptionFilter } from "./shared/exception-filters/mongo-exception.filter";
 import { MongooseExceptionFilter } from "./shared/exception-filters/mongoose-exception.filter";
 import { PostgresExceptionFilter } from "./shared/exception-filters/postgres-exception.filter";
+import { JwtModule } from "@nestjs/jwt";
+import { JwtModuleConfig } from "./configs/jwt-module.config";
 
 @Module({
   imports: [
@@ -57,6 +59,7 @@ import { PostgresExceptionFilter } from "./shared/exception-filters/postgres-exc
     }),
 
     MongooseModule.forRootAsync({ useClass: MongooseConfig }),
+    JwtModule.registerAsync({ global: true, useClass: JwtModuleConfig }),
     ThrottlerModule.forRootAsync({ useClass: ThrottlerConfig }),
     CacheModule.registerAsync({ isGlobal: true, useClass: CacheModuleConfig }),
     BullModule.forRootAsync({ useClass: BullmqConfig }),
