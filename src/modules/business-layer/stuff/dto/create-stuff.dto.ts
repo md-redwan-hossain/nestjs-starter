@@ -11,7 +11,8 @@ import {
   IsStrongPassword,
   Length
 } from "class-validator";
-import { GENDER } from "../../../../shared/enums/gender.enum";
+import { EGender } from "../../../data-layer/drizzle/schema";
+import { GENDER } from "../../../data-layer/drizzle/types";
 
 export class CreateStuffDto {
   @ApiProperty()
@@ -49,14 +50,14 @@ export class CreateStuffDto {
   Password: string;
 
   @ApiPropertyOptional()
-  @Length(10, 1200)
+  @Length(10, 1000)
   @Transform(({ value }) => value?.trim())
   @IsString()
   @IsOptional()
   Bio?: string;
 
-  @ApiProperty({ enum: Object.keys(GENDER) })
-  @IsIn(Object.keys(GENDER))
+  @ApiProperty({ enum: EGender.enumValues })
+  @IsIn(EGender.enumValues)
   @IsNotEmpty()
   Gender: GENDER;
 
@@ -66,3 +67,21 @@ export class CreateStuffDto {
   @IsNotEmpty()
   DateOfBirth: string;
 }
+
+// export class Confirm2faStuffDto {
+//   @ApiProperty()
+//   @IsEmail()
+//   @Length(4, 256)
+//   @Transform(({ value }) => value?.trim())
+//   @IsString()
+//   @IsNotEmpty()
+//   Email: string;
+
+//   @ApiProperty()
+//   @IsStrongPassword({ minLowercase: 1, minUppercase: 1, minNumbers: 1, minSymbols: 1 })
+//   @Length(8, 128)
+//   @Transform(({ value }) => value?.trim())
+//   @IsString()
+//   @IsNotEmpty()
+//   Password: string;
+// }

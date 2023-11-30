@@ -1,21 +1,20 @@
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException
+} from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import bcrypt from "bcrypt";
 import { Cache } from "cache-manager";
 import { UUID } from "crypto";
-import { eq } from "drizzle-orm";
-import { PostgresJsDatabase } from "drizzle-orm/postgres-js";
-import { ValidTotpConfig } from "time2fa/index";
-import { ulid } from "ulid";
-import { ULIDtoUUID } from "ulid-uuid-converter";
 import { EnvVariable } from "../../../shared/enums/env-variable.enum";
-import { USER_ROLE } from "../../../shared/enums/user-role.enum";
-import { relationalSchema } from "../../data-layer/drizzle";
-import { DrizzleOrmSyntax, DrizzleQueryBuilderSyntax } from "../../data-layer/drizzle.decorator";
-import { Stuffs } from "../../data-layer/drizzle/schema";
-import { AbstractAuthService } from "../../internal-layer/auth/abstracts/auth.abstract";
+import { ReadStuff, StuffEntity } from "../../data-layer/drizzle/types";
+import { AbstractTwoFactorAuthService } from "../../internal-layer/auth/abstracts/two-factor-auth.abstract";
 import { AccountVerificationDto } from "../../internal-layer/auth/dto/account-verification.dto";
+import { EmailLoginDto } from "../../internal-layer/auth/dto/login.dto";
 import { ChangePasswordDto } from "../../internal-layer/auth/dto/password-change.dto";
 import {
   TwoFactorAuthenticationDto,
@@ -23,269 +22,174 @@ import {
 } from "../../internal-layer/auth/dto/two-factor-authentication.dto";
 import { AbstractEmailSenderService } from "../../internal-layer/email-sender/abstracts/email-sender.abstract";
 import { accountActivationTokenPrefix } from "../../internal-layer/email-sender/constants";
-import { CreateStuffDto } from "./dto/create-stuff.dto";
 import { UpdateStuffDto } from "./dto/update-stuff.dto";
+import { StuffAuthRepository } from "./stuff-auth.repository";
+import { StuffCrudRepository } from "./stuff-crud.repository";
+import { InjectStuffEntity } from "./stuff.decorator";
+import { currentLocalTimeStamp } from "../../../shared/utils/helpers/current-local-timestamp";
 
 @Injectable()
 export class StuffService {
   constructor(
-    @DrizzleQueryBuilderSyntax() private readonly db: PostgresJsDatabase,
-    @DrizzleOrmSyntax() private readonly dbOrm: PostgresJsDatabase<typeof relationalSchema>,
-    private readonly authService: AbstractAuthService,
+    @InjectStuffEntity() readonly entity: StuffEntity,
+    private readonly twoFactorAuthService: AbstractTwoFactorAuthService,
     private readonly emailSenderService: AbstractEmailSenderService,
     private readonly configService: ConfigService,
+    private readonly authRepo: StuffAuthRepository,
+    private readonly crudRepo: StuffCrudRepository,
     @Inject(CACHE_MANAGER) private cacheManager: Cache
   ) {}
 
-  async create(createStuffDto: CreateStuffDto): Promise<{
-    Entity: typeof Stuffs.$inferSelect;
-    TotpData: {
-      issuer: string;
-      user: string;
-      secret: string;
-      url: string;
-      config: ValidTotpConfig;
-    };
-  } | null> {
-    const passwordBeforeHash = createStuffDto.Password;
-    createStuffDto.Password = await bcrypt.hash(createStuffDto.Password, 8);
-    const Id = ULIDtoUUID(ulid());
-    const totpData = await this.issueTotpSecret(createStuffDto.Email);
-    const plainRecoveryCodes = await this.authService.generateRecoveryCodesForTotpAuth();
+  async create2faData(dto: EmailLoginDto) {
+    const retrivedEntity = await this.authRepo.validateEmailLogin(dto);
+    if (!retrivedEntity) return null;
 
-    const insertStuffData: typeof Stuffs.$inferInsert = {
-      Id,
-      AuthenticatorKey: await this.authService.encrypt(totpData.secret, passwordBeforeHash),
-      RecoveryCodes: await this.authService.hashRecoveryCodesForTotpAuth(plainRecoveryCodes),
-      CreatedAt: new Date().toLocaleString(),
-      Role: "Moderator",
-      ...createStuffDto
-    };
+    if (retrivedEntity.IsTwoFactorAuthConfirmed)
+      throw new BadRequestException("2fa is alreadyactivated");
 
-    const [data] = await this.db.insert(Stuffs).values(insertStuffData).returning();
+    const totpData = await this.twoFactorAuthService.generateTotpKey({
+      issuer: this.configService.getOrThrow(EnvVariable.COMPANY_NAME),
+      user: dto.Email
+    });
 
-    data.RecoveryCodes = await this.authService.encryptRecoveryCodesForTotpAuth(
+    const plainRecoveryCodes = await this.twoFactorAuthService.generateRecoveryCodesForTotpAuth();
+
+    const hashedRecoveryCodes =
+      await this.twoFactorAuthService.hashRecoveryCodesForTotpAuth(plainRecoveryCodes);
+
+    const encryptedRecoveryCodes = await this.twoFactorAuthService.encryptRecoveryCodesForTotpAuth(
       plainRecoveryCodes,
-      passwordBeforeHash
+      dto.Password
     );
 
-    if (data?.Id) {
-      return { Entity: data, TotpData: totpData };
-    } else return null;
-  }
-
-  async findOneById(id: string | UUID): Promise<typeof Stuffs.$inferSelect | null> {
-    const [data] = await this.db.select().from(Stuffs).where(eq(Stuffs.Id, id));
-    return data?.Id ? data : null;
-  }
-
-  async findOneByEmail(email: string): Promise<typeof Stuffs.$inferSelect | null> {
-    const [data] = await this.db.select().from(Stuffs).where(eq(Stuffs.Email, email));
-    return data?.Id ? data : null;
-  }
-
-  async checkActivation(id: string | UUID): Promise<typeof Stuffs.$inferSelect> {
-    const entity = await this.findOneById(id);
-    if (!entity) throw new NotFoundException("No Stuff found with the given Id");
-    if (entity.IsDeactivated) throw new BadRequestException("Account is not activated");
-    return entity;
-  }
-
-  async update(
-    id: string | UUID,
-    updateStuffDto: UpdateStuffDto
-  ): Promise<typeof Stuffs.$inferSelect | null> {
-    const [data] = await this.db
-      .update(Stuffs)
-      .set({ ...updateStuffDto, UpdatedAt: new Date().toLocaleString() })
-      .where(eq(Stuffs.Id, id))
-      .returning();
-    return data?.Id ? data : null;
-  }
-
-  async remove(id: string | UUID): Promise<boolean> {
-    const [data] = await this.db
-      .delete(Stuffs)
-      .where(eq(Stuffs.Id, id))
-      .returning({ Id: Stuffs.Id });
-    if (data?.Id) return true;
-    return false;
-  }
-
-  private async validatePasswordChange(id: string | UUID, dto: ChangePasswordDto) {
-    const stuff = await this.checkActivation(id);
-    const isValidPassword = await this.authService.validatePassword(
-      stuff.Password,
-      dto.OldPassword
+    const encryptedKey = await this.twoFactorAuthService.encryptTotpKey(
+      totpData.secret,
+      dto.Password
     );
+
+    const status = await this.authRepo.create2faData(
+      retrivedEntity.Id,
+      encryptedKey,
+      hashedRecoveryCodes
+    );
+
+    if (!status?.Id) return null;
+
+    return {
+      encryptedKey,
+      encryptedRecoveryCodes,
+      url: totpData.url.replace(totpData.secret, "placeholder")
+    };
+  }
+
+  async changePassword(id: string, dto: ChangePasswordDto) {
+    const retrivedEntity = await this.crudRepo.findOneById(id);
+    if (!retrivedEntity) throw new NotFoundException("No Stuff found with the given Id");
+
+    const isValidPassword = await bcrypt.compare(dto.OldPassword, retrivedEntity.Password);
     if (!isValidPassword) throw new BadRequestException("Invalid OldPassword");
-    if (stuff && isValidPassword) return stuff;
-  }
 
-  async reEncrypt2faSecret(dto: ChangePasswordDto, oldEncryptedSecret: string) {
-    const oldDecryptedSecret = await this.authService.decrypt(oldEncryptedSecret, dto.OldPassword);
-    return await this.authService.encrypt(oldDecryptedSecret, dto.NewPassword);
-  }
-
-  async changePassword(id: string | UUID, dto: ChangePasswordDto) {
-    const entity = await this.validatePasswordChange(id, dto);
-    const newEncrypted2faSecret = await this.reEncrypt2faSecret(
-      dto,
-      entity?.AuthenticatorKey as string
-    );
+    if (!retrivedEntity.IsVerified) throw new ForbiddenException("entity not verified");
 
     dto.NewPassword = await bcrypt.hash(dto.NewPassword, 8);
 
-    const [data] = await this.db
-      .update(Stuffs)
-      .set({
-        Password: dto.NewPassword,
-        UpdatedAt: new Date().toLocaleString(),
-        AuthenticatorKey: newEncrypted2faSecret
-      })
-      .where(eq(Stuffs.Id, id))
-      .returning();
+    const dataForUpdate = new UpdateStuffDto({
+      Password: dto.NewPassword,
+      UpdatedAt: currentLocalTimeStamp()
+    });
 
-    return data.Id ? true : false;
+    if (retrivedEntity.AuthenticatorKey) {
+      const newEncrypted2faSecret = await this.twoFactorAuthService.reEncryptTotpKey(
+        dto.OldPassword,
+        dto.NewPassword,
+        retrivedEntity.AuthenticatorKey
+      );
+      Object.assign(dataForUpdate, { AuthenticatorKey: newEncrypted2faSecret });
+    }
+
+    const updatedEntity = await this.crudRepo.update(retrivedEntity.Id, dataForUpdate);
+    return updatedEntity?.Id ? true : false;
   }
 
-  async validateTotp(
-    encryptedSecretFromDb: string,
-    tokenFromReq: string,
-    plainPasswordFromReq: string
-  ): Promise<boolean> {
-    const decryptedSecret = await this.authService.decrypt(
-      encryptedSecretFromDb,
-      plainPasswordFromReq
+  async validate2faLogin(dto: TwoFactorAuthenticationDto): Promise<ReadStuff | null> {
+    const retrivedEntity = await this.authRepo.validateEmailLogin(dto);
+    if (!retrivedEntity) return null;
+
+    if (!retrivedEntity.IsTwoFactorAuthConfirmed || !retrivedEntity.AuthenticatorKey)
+      throw new ForbiddenException("2fa is not activated");
+
+    const isValidTotp = await this.twoFactorAuthService.verifyEncryptedTotp(
+      retrivedEntity.AuthenticatorKey,
+      dto.Token,
+      dto.Password
     );
-    if (!decryptedSecret) return false;
-    return await this.authService.validateTotp(tokenFromReq, decryptedSecret);
-  }
-
-  async update2faStatus(id: string | UUID): Promise<typeof Stuffs.$inferSelect | null> {
-    const [data] = await this.db
-      .update(Stuffs)
-      .set({ IsTwoFactorAuthConfirmed: true, UpdatedAt: new Date().toLocaleString() })
-      .where(eq(Stuffs.Id, id))
-      .returning();
-    return data?.Id ? data : null;
-  }
-
-  async removeUsedRecoveryCode(
-    id: string | UUID,
-    updatedCodes: string[]
-  ): Promise<typeof Stuffs.$inferSelect | null> {
-    const [data] = await this.db
-      .update(Stuffs)
-      .set({ RecoveryCodes: updatedCodes, UpdatedAt: new Date().toLocaleString() })
-      .where(eq(Stuffs.Id, id))
-      .returning();
-    return data?.Id ? data : null;
-  }
-
-  async verifyRole(entity: typeof Stuffs.$inferSelect) {
-    const validRoles = [USER_ROLE.SUPER_ADMIN, USER_ROLE.ADMIN, USER_ROLE.MODERATOR];
-    return validRoles.some((role) => role === entity.Role);
-  }
-
-  async validateLogin(
-    twoFactorDto: TwoFactorAuthenticationDto
-  ): Promise<typeof Stuffs.$inferSelect | null> {
-    const stuff = await this.findOneByEmail(twoFactorDto.Email);
-
-    if (!stuff) return null;
-    if (!this.verifyRole(stuff)) return null;
-
-    const isValidPassword = await this.authService.validatePassword(
-      stuff.Password,
-      twoFactorDto.Password
-    );
-    if (!isValidPassword) return null;
-    const isValidTotp = await this.validateTotp(
-      stuff.AuthenticatorKey,
-      twoFactorDto.Token,
-      twoFactorDto.Password
-    );
-
     if (!isValidTotp) return null;
-    else {
-      if (!stuff.IsTwoFactorAuthConfirmed) {
-        const status = await this.update2faStatus(stuff.Id);
-        if (!status) return null;
-        this.emailSenderService.addTaskInEmailQueue(stuff.Id, stuff.Email);
-      }
-      return stuff;
-    }
-  }
 
-  async validateRecoveryCode(stuff: typeof Stuffs.$inferSelect, RecoveryCode: string) {
-    for (const item of stuff.RecoveryCodes) {
-      const status = await bcrypt.compare(RecoveryCode, item);
-      if (status) {
-        stuff.RecoveryCodes = stuff.RecoveryCodes.filter((elem) => elem !== item);
-        return stuff.RecoveryCodes;
+    if (!retrivedEntity.IsTwoFactorAuthConfirmed) {
+      await this.authRepo.update2faStatus(retrivedEntity.Id);
+      if (!retrivedEntity.IsVerified) {
+        await this.emailSenderService.addTaskInEmailQueue(retrivedEntity.Id, retrivedEntity.Email);
       }
     }
-    return null;
+
+    return retrivedEntity;
   }
 
   async validateLoginWithRecoveryCode(
-    twoFactorRecoveryCodeDto: TwoFactorAuthenticationWithRecoveryCodeDto
-  ): Promise<typeof Stuffs.$inferSelect | null> {
-    const stuff = await this.findOneByEmail(twoFactorRecoveryCodeDto.Email);
-    if (!stuff) return null;
+    dto: TwoFactorAuthenticationWithRecoveryCodeDto
+  ): Promise<ReadStuff | null> {
+    const retrivedEntity = await this.authRepo.validateEmailLogin(dto);
+    if (!retrivedEntity) return null;
 
-    const isValidPassword = await this.authService.validatePassword(
-      stuff.Password,
-      twoFactorRecoveryCodeDto.Password
-    );
-    if (!isValidPassword || !stuff.IsTwoFactorAuthConfirmed) return null;
+    if (!retrivedEntity.IsTwoFactorAuthConfirmed || !retrivedEntity.RecoveryCodes)
+      throw new ForbiddenException("2fa is not activated");
 
-    const data = await this.validateRecoveryCode(stuff, twoFactorRecoveryCodeDto.RecoveryCode);
-    if (!data) return null;
-    const status = await this.removeUsedRecoveryCode(stuff.Id, data);
-    return status?.Id ? stuff : null;
+    let indexOfMatchedCode: number = -1;
+
+    for (const [index, val] of retrivedEntity.RecoveryCodes.entries()) {
+      const isMatched = await bcrypt.compare(dto.RecoveryCode, val);
+      if (isMatched) {
+        indexOfMatchedCode = index;
+        break;
+      }
+    }
+
+    if (indexOfMatchedCode >= 0 && indexOfMatchedCode < retrivedEntity.RecoveryCodes.length) {
+      retrivedEntity.RecoveryCodes.splice(indexOfMatchedCode, 1);
+      const status = await this.authRepo.removeUsedRecoveryCode(
+        retrivedEntity.Id,
+        retrivedEntity.RecoveryCodes
+      );
+      return status?.Id ? retrivedEntity : null;
+    } else return null;
   }
 
-  async jwtIssuer(stuff: typeof Stuffs.$inferSelect): Promise<{ access_token: string }> {
-    return await this.authService.issueJsonWebToken(stuff.Id, USER_ROLE.MODERATOR);
-  }
-
-  async logout(token: string, expiresIn: string): Promise<boolean> {
-    await this.authService.blacklistTokenOnLogout(token, expiresIn);
-    return true;
-  }
-
-  async verifyAccount(
-    accountVerificationDto: AccountVerificationDto,
-    id: string | UUID
-  ): Promise<boolean> {
+  async verifyAccount(dto: AccountVerificationDto, id: string | UUID): Promise<boolean> {
     const key = accountActivationTokenPrefix.concat(id);
     const tokenInCache = await this.cacheManager.get<string>(key);
-    if (!tokenInCache || tokenInCache !== accountVerificationDto.Token) return false;
+    if (!tokenInCache || tokenInCache !== dto.Token) return false;
 
-    const entity = await this.findOneById(id);
+    const entity = await this.crudRepo.findOneById(id);
     if (!entity?.Id) throw new BadRequestException("No entity found with the given Id");
     if (entity.IsVerified) throw new BadRequestException("Already verified");
-
-    await this.db
-      .update(Stuffs)
-      .set({ IsVerified: true, UpdatedAt: new Date().toLocaleString() })
-      .where(eq(Stuffs.Id, id))
-      .returning();
+    const status = this.authRepo.updateAccountVerificationStatus(dto, id);
     await this.cacheManager.del(key);
-    return true;
+    return status;
   }
 
-  async issueTotpSecret(email: string) {
-    const secret = await this.authService.generateTotpKey({
-      issuer: this.configService.getOrThrow(EnvVariable.COMPANY_NAME),
-      user: email
-    });
-    return secret;
-  }
+  async resendVerificationCode(id: string): Promise<boolean> {
+    const retrivedEntity = await this.crudRepo.findOneById(id);
+    if (!retrivedEntity) throw new NotFoundException("entity not found");
 
-  async issueTotpBackupKeys() {
-    return await this.authService.generateRecoveryCodesForTotpAuth();
+    if (retrivedEntity.IsVerified) throw new BadRequestException("already verified");
+
+    const key = accountActivationTokenPrefix.concat(retrivedEntity.Id);
+    const tokenInCache = await this.cacheManager.get<string>(key);
+    if (tokenInCache) throw new BadRequestException("old token already exists");
+
+    return await this.emailSenderService.addTaskInEmailQueue(
+      retrivedEntity.Id,
+      retrivedEntity.Email
+    );
   }
 }

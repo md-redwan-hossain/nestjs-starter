@@ -1,6 +1,6 @@
 import { ApiResponseProperty } from "@nestjs/swagger";
 import { GENDER } from "../../../../shared/enums/gender.enum";
-import { Stuffs } from "../../../data-layer/drizzle/schema";
+import { ReadStuff } from "../../../data-layer/drizzle/types";
 
 export class ResponseStuffDto {
   @ApiResponseProperty()
@@ -24,18 +24,18 @@ export class ResponseStuffDto {
   @ApiResponseProperty()
   DateOfBirth: string;
 
-  constructor(stuff: typeof Stuffs.$inferSelect) {
+  constructor(stuff: ReadStuff) {
     this.Id = stuff.Id;
     this.FullName = stuff.FullName;
     this.Email = stuff.Email;
     this.MobileNumber = stuff.MobileNumber || undefined;
     this.Bio = stuff.Bio || undefined;
-    this.Gender = stuff.Gender as typeof this.Gender;
+    this.Gender = stuff.Gender as GENDER;
     this.DateOfBirth = stuff.DateOfBirth;
   }
 }
 
-class TotpResponseDTo {
+export class TotpResponseDTo {
   @ApiResponseProperty()
   AuthenticatorKey: string;
 
@@ -43,13 +43,5 @@ class TotpResponseDTo {
   RecoveryCodes: string;
 
   @ApiResponseProperty()
-  Url: string[];
-}
-
-export class ResponseStuff2faDto {
-  @ApiResponseProperty()
-  Entity: ResponseStuffDto;
-
-  @ApiResponseProperty()
-  Totp: TotpResponseDTo;
+  Url: string;
 }

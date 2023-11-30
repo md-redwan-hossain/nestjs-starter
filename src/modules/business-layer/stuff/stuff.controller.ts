@@ -1,23 +1,19 @@
 import {
   Body,
   Controller,
-  Delete,
+  ForbiddenException,
   Get,
   HttpStatus,
   Patch,
   Post,
   Req,
   Res,
-  UseGuards,
   ValidationPipe
 } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
-  ApiBearerAuth,
   ApiConsumes,
   ApiCreatedResponse,
-  ApiForbiddenResponse,
-  ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -26,25 +22,26 @@ import {
   ApiUnauthorizedResponse
 } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
-import { Request, Response, request } from "express";
+import { Request, Response } from "express";
 import ms from "ms";
 import { defaultValidationPipeRules } from "../../../shared/constants/default-validation-pipe-rules.constant";
 import { JwtRbacAuth } from "../../../shared/decorators/jwt-rbac-auth.decorator";
 import { UserId } from "../../../shared/decorators/user-id.decorator";
 import { USER_ROLE } from "../../../shared/enums/user-role.enum";
 import { DisallowSameOldAndNewPasswordPipe } from "../../../shared/pipes/disallow-same-old-and-new-password.pipe";
-import { AllowedRoles } from "../../internal-layer/auth/decorators/allowed-roles.decorator";
+import { AbstractJwtAuthService } from "../../internal-layer/auth/abstracts/jwt-auth.abstract";
 import { AccountVerificationDto } from "../../internal-layer/auth/dto/account-verification.dto";
+import { EmailLoginDto } from "../../internal-layer/auth/dto/login.dto";
 import { ChangePasswordDto } from "../../internal-layer/auth/dto/password-change.dto";
 import {
   TwoFactorAuthenticationDto,
   TwoFactorAuthenticationWithRecoveryCodeDto
 } from "../../internal-layer/auth/dto/two-factor-authentication.dto";
-import { JwtAuthGuard } from "../../internal-layer/auth/guards/jwt-auth.guard";
-import { RoleGuard } from "../../internal-layer/auth/guards/role.guard";
 import { CreateStuffDto } from "./dto/create-stuff.dto";
-import { ResponseStuff2faDto, ResponseStuffDto } from "./dto/response-stuff.dto";
+import { ResponseStuffDto, TotpResponseDTo } from "./dto/response-stuff.dto";
 import { UpdateStuffDto } from "./dto/update-stuff.dto";
+import { StuffAuthRepository } from "./stuff-auth.repository";
+import { StuffCrudRepository } from "./stuff-crud.repository";
 import { StuffService } from "./stuff.service";
 
 @ApiTags("stuff")
@@ -52,30 +49,81 @@ import { StuffService } from "./stuff.service";
 @ApiProduces("application/json")
 @Controller("stuff")
 export class StuffController {
-  constructor(private readonly stuffService: StuffService) {}
+  constructor(
+    private readonly stuffService: StuffService,
+    private readonly crudRepo: StuffCrudRepository,
+    private readonly authRepo: StuffAuthRepository,
+    private readonly jwtAuthService: AbstractJwtAuthService
+  ) {}
 
   @Post("signup")
   @ApiOperation({ summary: "stuff Signup" })
-  @ApiCreatedResponse({ type: ResponseStuff2faDto })
+  @ApiCreatedResponse({ type: ResponseStuffDto })
   @ApiBadRequestResponse()
   async create(
     @Body(new ValidationPipe(defaultValidationPipeRules)) createStuffDto: CreateStuffDto,
     @Res() response: Response
   ) {
-    const stuff = await this.stuffService.create(createStuffDto);
-    if (stuff) {
-      response
-        .status(HttpStatus.CREATED)
-        .json({
-          Entity: new ResponseStuffDto(stuff.Entity),
-          Totp: {
-            AuthenticatorKey: stuff.Entity.AuthenticatorKey,
-            RecoveryCodes: stuff.Entity.RecoveryCodes,
-            Url: stuff.TotpData.url.replace(stuff.TotpData.secret, "placeholder")
-          }
-        })
-        .end();
-    } else response.status(HttpStatus.BAD_REQUEST).end();
+    const entity = await this.crudRepo.create(createStuffDto);
+    if (!entity) return response.status(HttpStatus.BAD_REQUEST).end();
+    response.status(HttpStatus.CREATED).send(new ResponseStuffDto(entity)).end();
+  }
+
+  @JwtRbacAuth([USER_ROLE.SUPER_ADMIN, USER_ROLE.ADMIN, USER_ROLE.MODERATOR])
+  @Get("profile")
+  @ApiOperation({ summary: "stuff profile" })
+  @ApiOkResponse({ type: ResponseStuffDto })
+  @ApiNotFoundResponse()
+  @ApiBadRequestResponse()
+  async findOne(@UserId() id: string, @Res() response: Response) {
+    const entity = await this.crudRepo.findOneById(id);
+    if (!entity) return response.status(HttpStatus.NOT_FOUND).end();
+    if (!entity.IsVerified) throw new ForbiddenException("entity not verified");
+    response.status(HttpStatus.OK).send(new ResponseStuffDto(entity));
+  }
+
+  @JwtRbacAuth([USER_ROLE.SUPER_ADMIN, USER_ROLE.ADMIN, USER_ROLE.MODERATOR])
+  @Patch("profile")
+  @ApiOperation({ summary: "Update stuff data" })
+  @ApiOkResponse({ type: ResponseStuffDto })
+  @ApiNotFoundResponse()
+  @ApiBadRequestResponse()
+  async update(
+    @Body(new ValidationPipe(defaultValidationPipeRules)) dto: UpdateStuffDto,
+    @UserId() id: string,
+    @Res() response: Response
+  ) {
+    if (Object.keys(dto).length === 0) return response.status(HttpStatus.NOT_MODIFIED).end();
+
+    const entity = await this.crudRepo.findOneById(id);
+    if (!entity) return response.status(HttpStatus.NOT_FOUND).end();
+
+    if (!entity.IsVerified) throw new ForbiddenException("entity not verified");
+
+    const updatedData = await this.crudRepo.update(entity.Id, dto);
+    if (!updatedData) return response.status(HttpStatus.BAD_REQUEST).end();
+    response.status(HttpStatus.OK).send(new ResponseStuffDto(updatedData));
+  }
+
+  @Post("add-2fa")
+  @ApiOperation({ summary: "stuff add 2fa" })
+  @ApiCreatedResponse({ type: TotpResponseDTo })
+  @ApiBadRequestResponse()
+  async confirm2fa(
+    @Body(new ValidationPipe(defaultValidationPipeRules)) dto: EmailLoginDto,
+    @Res() response: Response
+  ) {
+    const data = await this.stuffService.create2faData(dto);
+    if (!data) return response.status(HttpStatus.BAD_REQUEST).end();
+
+    response
+      .status(HttpStatus.CREATED)
+      .json({
+        AuthenticatorKey: data.encryptedKey,
+        RecoveryCodes: data.encryptedRecoveryCodes,
+        Url: data.url
+      })
+      .end();
   }
 
   @Post("2fa-login")
@@ -87,11 +135,11 @@ export class StuffController {
     @Body(new ValidationPipe(defaultValidationPipeRules)) twoFactorDto: TwoFactorAuthenticationDto,
     @Res() response: Response
   ) {
-    const stuff = await this.stuffService.validateLogin(twoFactorDto);
-    if (stuff) {
-      const { access_token } = await this.stuffService.jwtIssuer(stuff);
-      response.set({ access_token }).status(HttpStatus.OK).json({ message: "login Ok" }).end();
-    } else response.status(HttpStatus.UNAUTHORIZED).end();
+    const entity = await this.stuffService.validate2faLogin(twoFactorDto);
+    if (!entity) return response.status(HttpStatus.UNAUTHORIZED).end();
+
+    const access_token = await this.jwtAuthService.issueJsonWebToken(entity.Id, "Moderator");
+    response.set({ access_token }).status(HttpStatus.OK).json({ message: "login Ok" }).end();
   }
 
   @Post("2fa-recovery-code-login")
@@ -104,41 +152,31 @@ export class StuffController {
     twoFactorRecoveryCodeDto: TwoFactorAuthenticationWithRecoveryCodeDto,
     @Res() response: Response
   ) {
-    const stuff = await this.stuffService.validateLoginWithRecoveryCode(twoFactorRecoveryCodeDto);
-    if (stuff) {
-      const { access_token } = await this.stuffService.jwtIssuer(stuff);
+    const entity = await this.stuffService.validateLoginWithRecoveryCode(twoFactorRecoveryCodeDto);
+    if (entity) {
+      const access_token = await this.jwtAuthService.issueJsonWebToken(entity.Id, "Moderator");
       response.set({ access_token }).status(HttpStatus.OK).json({ message: "login Ok" }).end();
     } else response.status(HttpStatus.UNAUTHORIZED).end();
   }
 
-  @AllowedRoles([USER_ROLE.SUPER_ADMIN, USER_ROLE.ADMIN, USER_ROLE.MODERATOR])
-  @UseGuards(RoleGuard)
-  @UseGuards(JwtAuthGuard)
+  @JwtRbacAuth([USER_ROLE.SUPER_ADMIN, USER_ROLE.ADMIN, USER_ROLE.MODERATOR])
   @Post("logout")
-  @ApiBearerAuth()
   @ApiOperation({ summary: "stuff logout" })
   @ApiOkResponse()
   @ApiBadRequestResponse()
-  @ApiUnauthorizedResponse()
   async logout(@Req() request: Request, @Res() response: Response) {
-    const status = await this.stuffService.logout(
+    await this.jwtAuthService.blacklistTokenOnLogout(
       request?.jwt as string,
       request?.user?.exp as string
     );
-    if (status) response.status(HttpStatus.OK).json({ message: "logout Ok" }).end();
-    else response.status(HttpStatus.UNAUTHORIZED).end();
+    response.status(HttpStatus.OK).json({ message: "logout Ok" }).end();
   }
 
-  @AllowedRoles([USER_ROLE.SUPER_ADMIN, USER_ROLE.ADMIN, USER_ROLE.MODERATOR])
-  @UseGuards(RoleGuard)
-  @UseGuards(JwtAuthGuard)
+  @JwtRbacAuth([USER_ROLE.SUPER_ADMIN, USER_ROLE.ADMIN, USER_ROLE.MODERATOR])
   @Throttle({ default: { limit: 3, ttl: ms("1m") } })
   @Post("verify")
-  @ApiBearerAuth()
   @ApiOperation({ summary: "stuff account verify" })
   @ApiOkResponse()
-  @ApiBadRequestResponse()
-  @ApiUnauthorizedResponse()
   async verifyAccount(
     @Body(new ValidationPipe(defaultValidationPipeRules))
     accountVerificationDto: AccountVerificationDto,
@@ -150,17 +188,24 @@ export class StuffController {
     else response.status(HttpStatus.UNAUTHORIZED).end();
   }
 
-  @AllowedRoles([USER_ROLE.SUPER_ADMIN, USER_ROLE.ADMIN, USER_ROLE.MODERATOR])
-  @UseGuards(RoleGuard)
-  @UseGuards(JwtAuthGuard)
+  @JwtRbacAuth([USER_ROLE.SUPER_ADMIN, USER_ROLE.ADMIN, USER_ROLE.MODERATOR])
+  @Post("resend-account-verification-code")
+  @Throttle({ default: { limit: 1, ttl: ms("30m") } })
+  @ApiOperation({ summary: "resend account verification code" })
+  @ApiCreatedResponse()
+  @ApiBadRequestResponse()
+  async resendAccountVerificationCode(@UserId() id: string, @Res() response: Response) {
+    const data = await this.stuffService.resendVerificationCode(id);
+    if (!data) return response.status(HttpStatus.BAD_REQUEST).end();
+    response.status(HttpStatus.OK).end();
+  }
+
+  @JwtRbacAuth([USER_ROLE.SUPER_ADMIN, USER_ROLE.ADMIN, USER_ROLE.MODERATOR])
   @Post("change-password")
-  @ApiBearerAuth()
   @ApiOperation({ summary: "change password for stuff" })
   @ApiOkResponse()
   @ApiBadRequestResponse()
-  @ApiUnauthorizedResponse()
-  @ApiForbiddenResponse()
-  async changePassword(
+  async resetPassword(
     @Body(new ValidationPipe(defaultValidationPipeRules), DisallowSameOldAndNewPasswordPipe)
     changePasswordDto: ChangePasswordDto,
     @UserId() id: string,
@@ -169,79 +214,5 @@ export class StuffController {
     const status = await this.stuffService.changePassword(id, changePasswordDto);
     if (status) response.status(HttpStatus.OK).end();
     else response.status(HttpStatus.BAD_REQUEST).end();
-  }
-
-  @JwtRbacAuth([USER_ROLE.SUPER_ADMIN, USER_ROLE.ADMIN, USER_ROLE.MODERATOR])
-  @Get("profile")
-  @ApiOperation({ summary: "stuff profile" })
-  @ApiOkResponse({ type: ResponseStuffDto })
-  @ApiNotFoundResponse()
-  @ApiBadRequestResponse()
-  async findOne(@UserId() id: string, @Res() response: Response) {
-    const stuff = await this.stuffService.findOneById(id);
-    if (!stuff) {
-      return response.status(HttpStatus.NOT_FOUND).end();
-    }
-
-    if (stuff.IsDeactivated) {
-      return response.status(HttpStatus.BAD_REQUEST).send("Account is not activated");
-    }
-
-    response.status(HttpStatus.OK).send(new ResponseStuffDto(stuff));
-  }
-
-  @AllowedRoles([USER_ROLE.SUPER_ADMIN, USER_ROLE.ADMIN, USER_ROLE.MODERATOR])
-  @UseGuards(RoleGuard)
-  @UseGuards(JwtAuthGuard)
-  @Patch("profile")
-  @ApiBearerAuth()
-  @ApiOperation({ summary: "Update stuff data" })
-  @ApiOkResponse({ type: ResponseStuffDto })
-  @ApiNotFoundResponse()
-  @ApiBadRequestResponse()
-  @ApiUnauthorizedResponse()
-  @ApiForbiddenResponse()
-  async update(
-    @Body(new ValidationPipe(defaultValidationPipeRules)) updateStuffDto: UpdateStuffDto,
-    @UserId() id: string,
-    @Res() response: Response
-  ) {
-    if (Object.keys(updateStuffDto).length === 0) {
-      return response.status(HttpStatus.NOT_MODIFIED).end();
-    }
-
-    const stuff = await this.stuffService.findOneById(id);
-    if (!stuff) return response.status(HttpStatus.NOT_FOUND).end();
-
-    if (stuff.IsDeactivated) {
-      return response.status(HttpStatus.BAD_REQUEST).send("Account is not activated");
-    }
-
-    const updatedData = await this.stuffService.update(stuff.Id, updateStuffDto);
-    if (updatedData) response.status(HttpStatus.OK).send(new ResponseStuffDto(updatedData));
-    else response.status(HttpStatus.BAD_REQUEST).end();
-  }
-
-  @AllowedRoles([USER_ROLE.SUPER_ADMIN, USER_ROLE.ADMIN, USER_ROLE.MODERATOR])
-  @UseGuards(RoleGuard)
-  @UseGuards(JwtAuthGuard)
-  @Delete("profile")
-  @ApiBearerAuth()
-  @ApiOperation({ summary: "Delete stuff" })
-  @ApiNoContentResponse()
-  @ApiNotFoundResponse()
-  @ApiUnauthorizedResponse()
-  @ApiForbiddenResponse()
-  async remove(@UserId() id: string, @Res() response: Response) {
-    const stuff = await this.stuffService.findOneById(id);
-    if (!stuff) return response.status(HttpStatus.NOT_FOUND).end();
-
-    if (stuff.IsDeactivated) {
-      return response.status(HttpStatus.BAD_REQUEST).send("Account is not activated");
-    }
-
-    const status = await this.stuffService.remove(request?.user?.Id as string);
-    if (status) response.status(HttpStatus.NO_CONTENT).end();
-    else response.status(HttpStatus.NOT_FOUND).end();
   }
 }
