@@ -1,5 +1,5 @@
 import { UUID } from "crypto";
-import { USER_ROLE } from "../../../data-layer/drizzle/types";
+import { USER_ROLE } from "../../../../shared/enums/user-role.enum";
 
 export abstract class AbstractJwtAuthService {
   abstract tokenBlacklistedStatus(token: string): Promise<boolean>;

@@ -138,7 +138,10 @@ export class StuffController {
     const entity = await this.stuffService.validate2faLogin(twoFactorDto);
     if (!entity) return response.status(HttpStatus.UNAUTHORIZED).end();
 
-    const access_token = await this.jwtAuthService.issueJsonWebToken(entity.Id, "Moderator");
+    const access_token = await this.jwtAuthService.issueJsonWebToken(
+      entity.Id,
+      USER_ROLE.MODERATOR
+    );
     response.set({ access_token }).status(HttpStatus.OK).json({ message: "login Ok" }).end();
   }
 
@@ -154,7 +157,10 @@ export class StuffController {
   ) {
     const entity = await this.stuffService.validateLoginWithRecoveryCode(twoFactorRecoveryCodeDto);
     if (entity) {
-      const access_token = await this.jwtAuthService.issueJsonWebToken(entity.Id, "Moderator");
+      const access_token = await this.jwtAuthService.issueJsonWebToken(
+        entity.Id,
+        USER_ROLE.MODERATOR
+      );
       response.set({ access_token }).status(HttpStatus.OK).json({ message: "login Ok" }).end();
     } else response.status(HttpStatus.UNAUTHORIZED).end();
   }

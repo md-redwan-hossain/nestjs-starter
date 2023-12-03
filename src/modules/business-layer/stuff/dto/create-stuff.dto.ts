@@ -12,7 +12,7 @@ import {
   Length
 } from "class-validator";
 import { EGender } from "../../../data-layer/drizzle/schema";
-import { GENDER } from "../../../data-layer/drizzle/types";
+import { GENDER } from "../../../../shared/enums/gender.enum";
 
 export class CreateStuffDto {
   @ApiProperty()
