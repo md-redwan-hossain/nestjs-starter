@@ -24,7 +24,7 @@
   },
   "dependencies": {
     "@bull-board/api": "^5.9.1",
-    "@bull-board/express": "^5.9.1",
+    "@bull-board/express": "^5.10.2",
     "@bull-board/nestjs": "^5.9.1",
     "@nestjs/axios": "^3.0.1",
     "@nestjs/bullmq": "^10.0.1",
