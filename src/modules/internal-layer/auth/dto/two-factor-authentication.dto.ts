@@ -1,32 +1,9 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { Transform } from "class-transformer";
-import {
-  IsEmail,
-  IsInt,
-  IsNotEmpty,
-  IsPositive,
-  IsString,
-  IsStrongPassword,
-  Length
-} from "class-validator";
+import { IsNotEmpty, IsString } from "class-validator";
+import { EmailLoginDto } from "./login.dto";
 
-export class TwoFactorAuthenticationDto {
-  @ApiProperty()
-  @IsEmail()
-  @Length(4, 256)
-  @Transform(({ value }) => value?.trim())
-  @IsString()
-  @IsNotEmpty()
-  Email: string;
-
-  @ApiProperty()
-  @IsStrongPassword({ minLowercase: 1, minUppercase: 1, minNumbers: 1, minSymbols: 1 })
-  @Length(8, 128)
-  @Transform(({ value }) => value?.trim())
-  @IsString()
-  @IsNotEmpty()
-  Password: string;
-
+export class TwoFactorAuthenticationDto extends EmailLoginDto {
   @ApiProperty()
   @Transform(({ value }) => value?.trim())
   @IsString()
@@ -34,23 +11,7 @@ export class TwoFactorAuthenticationDto {
   Token: string;
 }
 
-export class TwoFactorAuthenticationWithRecoveryCodeDto {
-  @ApiProperty()
-  @IsEmail()
-  @Length(4, 256)
-  @Transform(({ value }) => value?.trim())
-  @IsString()
-  @IsNotEmpty()
-  Email: string;
-
-  @ApiProperty()
-  @IsStrongPassword({ minLowercase: 1, minUppercase: 1, minNumbers: 1, minSymbols: 1 })
-  @Length(8, 128)
-  @Transform(({ value }) => value?.trim())
-  @IsString()
-  @IsNotEmpty()
-  Password: string;
-
+export class TwoFactorAuthenticationWithRecoveryCodeDto extends EmailLoginDto {
   @ApiProperty()
   @Transform(({ value }) => value?.trim())
   @IsString()

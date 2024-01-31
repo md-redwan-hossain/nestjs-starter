@@ -2,8 +2,8 @@ import { ConfigService } from "@nestjs/config";
 import { PostgresJsDatabase, drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { EnvVariable } from "../../shared/enums/env-variable.enum";
-import { DRIZZLE_ORM_SYNTAX, DRIZZLE_QUERY_BUILDER_SYNTAX } from "./constants";
 import { relationalSchema } from "./drizzle";
+import { DRIZZLE_QUERY_BUILDER_SYNTAX, DRIZZLE_ORM_SYNTAX } from "./drizzle.decorator";
 
 export const databaseProviders = [
   {

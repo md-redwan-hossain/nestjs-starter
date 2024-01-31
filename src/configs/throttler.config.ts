@@ -2,8 +2,8 @@ import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { ThrottlerModuleOptions, ThrottlerOptionsFactory, seconds } from "@nestjs/throttler";
 import { ThrottlerStorageRedisService } from "nestjs-throttler-storage-redis";
-import { defaultRedisConnectionOptions } from "../shared/constants/default-redis-connection-options.constant";
 import { EnvVariable } from "../shared/enums/env-variable.enum";
+import { defaultRedisConnectionOptions } from "../shared/utils/helpers/default-redis-connection-options";
 import { redisUrlParser } from "../shared/utils/helpers/redis-utils";
 
 @Injectable()

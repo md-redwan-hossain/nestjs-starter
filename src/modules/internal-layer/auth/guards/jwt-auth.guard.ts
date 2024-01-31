@@ -3,14 +3,14 @@ import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import { Request } from "express";
 import { EnvVariable } from "../../../../shared/enums/env-variable.enum";
-import { AbstractAuthService } from "../abstracts/auth.abstract";
+import { AbstractJwtAuthService } from "../abstracts/jwt-auth.abstract";
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   constructor(
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-    private readonly authService: AbstractAuthService
+    private readonly jwtAuthService: AbstractJwtAuthService
   ) {}
 
   private extractTokenFromHeader(request: Request): string | null {
@@ -41,7 +41,7 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException("mismatch in token Env");
     }
 
-    const blackListStatus = await this.authService.tokenBlacklistedStatus(token);
+    const blackListStatus = await this.jwtAuthService.tokenBlacklistedStatus(token);
     if (blackListStatus) throw new UnauthorizedException("access_token is blacklisted");
 
     Object.assign(request, { user: payload });

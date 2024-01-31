@@ -42,12 +42,8 @@
 
 ## Configuring environment variables
 
-- create `.env.dev` and `env.prod` files from .env.example
-- then initilize `.env.dev` and `env.prod` files with proper values
-
-```bash
-cp .env.example .env.dev && cp .env.example .env.prod
-```
+- Run `npm run make-env` to make the `.env.*` files from the example .env files.
+- then initilize them with proper values
 
 ## Running Postgresql and Redis in Docker
 
@@ -62,11 +58,37 @@ docker compose up -d
 docker compose stop
 ```
 
-- **If you are running the database for the first time, you need to apply the `migration.sql` file to the database.**
+## Database Migration
 
-- **To pull all database tables as Drizzle schema, run `npx drizzle-kit introspect:pg`**
+- Migrations are managed by [DbMate.](https://github.com/amacneil/dbmate)
 
-- **The API is completely documented with proper types, head over to http://127.0.0.1:3000/api-doc for comprehensive reference.**
+- Migrations will be applied and rollbacked sequentially.
+
+- If you are running the database for the first time, you need to apply the migrations to the database.
+
+- Drizzle ORM is preferred for doing queries in the application.
+
+- To pull all database tables as Drizzle schema, run `npx drizzle-kit introspect:pg` for postgresql.
+
+- Using Drizzle or any kind of ORM for migrations is not recommended since they lack support of many DB specific features.
+
+```bash
+# list of all migrations with status
+npm run migrator:list
+
+# apply a migration
+npm run migrator:apply
+
+# rollback a migration
+npm run migrator:rollback
+
+# create a new blank migration
+# write sql in the generated migration file
+npm run migrator:new
+
+# force push the db schema
+npm run migrator:schema-force-push
+```
 
 ## Json Web Token (JWT) authentication
 

@@ -1,12 +1,12 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { HealthCheckError, HealthIndicator, HealthIndicatorResult } from "@nestjs/terminus";
 import { sql } from "drizzle-orm";
 import { PostgresJsDatabase } from "drizzle-orm/postgres-js";
-import { DRIZZLE_QUERY_BUILDER_SYNTAX } from "../../data-layer/constants";
+import { DrizzleQueryBuilderSyntax } from "../../data-layer/drizzle.decorator";
 
 @Injectable()
 export class DrizzleHealthIndicator extends HealthIndicator {
-  constructor(@Inject(DRIZZLE_QUERY_BUILDER_SYNTAX) private readonly db: PostgresJsDatabase) {
+  constructor(@DrizzleQueryBuilderSyntax() private readonly db: PostgresJsDatabase) {
     super();
   }
 

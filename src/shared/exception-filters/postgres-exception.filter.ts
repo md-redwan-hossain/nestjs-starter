@@ -10,31 +10,40 @@ export class PostgresExceptionFilter implements ExceptionFilter {
   catch(exception: PostgresError, host: ArgumentsHost) {
     const response = host.switchToHttp().getResponse<Response>();
 
-    if (exception.message.includes("GROUP BY clause")) {
-      this.logger.fatal(exception.message, exception.stack, PostgresExceptionFilter.name);
-      response
-        .status(HttpStatus.INTERNAL_SERVER_ERROR)
-        .send(HttpStatusMessage.INTERNAL_SERVER_ERROR)
-        .end();
-      return;
+    let errorMsg: string = "";
+    let errorcode: HttpStatus = HttpStatus.BAD_REQUEST;
+
+    switch (exception.code) {
+      case "23505":
+        errorMsg = `unique_violation: ${exception.constraint_name}`;
+        errorcode = HttpStatus.CONFLICT;
+        break;
+
+      case "23503":
+      case "23514":
+      case "23502":
+      case "23001":
+      case "23000":
+      case "22004":
+        errorMsg = `${exception.constraint_name ?? exception.code}`;
+        break;
+
+      default:
+        console.log(exception);
+        this.logger.fatal(exception.code, exception, PostgresExceptionFilter.name);
+        response
+          .status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .send(HttpStatusMessage.INTERNAL_SERVER_ERROR)
+          .end();
+        return;
     }
 
-    let uniqueConstraintError = false;
-
-    if (exception.message.includes("duplicate key value violates unique constraint"))
-      uniqueConstraintError = true;
-
     const errorBody = {
-      message: exception.detail
-        ? exception.detail?.replaceAll('"', "'")
-        : exception.message.replaceAll('"', "'"),
-      error: uniqueConstraintError ? HttpStatusMessage.CONFLICT : HttpStatusMessage.BAD_REQUEST,
-      statusCode: uniqueConstraintError ? HttpStatus.CONFLICT : HttpStatus.BAD_REQUEST
+      message: errorMsg,
+      details: exception.detail ?? exception.message,
+      statusCode: errorcode
     };
 
-    response
-      .status(uniqueConstraintError ? HttpStatus.CONFLICT : HttpStatus.BAD_REQUEST)
-      .json(errorBody)
-      .end();
+    response.status(errorcode).json(errorBody).end();
   }
 }

@@ -4,10 +4,10 @@ import { LevelOfLog } from "../../../../shared/enums/level-of-log.enum";
 
 @Schema({ collection: "error_logs" })
 export class Logging {
-  @Prop({ required: true })
+  @Prop({ required: true, index: true })
   timestamp: Date;
 
-  @Prop({ type: String, required: true, enum: Object.keys(LevelOfLog) })
+  @Prop({ type: String, required: true, index: true, enum: Object.keys(LevelOfLog) })
   level: LevelOfLog;
 
   @Prop({ required: true })

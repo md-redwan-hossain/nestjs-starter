@@ -4,6 +4,7 @@ import { Module, OnModuleInit } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { APP_FILTER, APP_GUARD } from "@nestjs/core";
 import { EventEmitterModule } from "@nestjs/event-emitter";
+import { JwtModule } from "@nestjs/jwt";
 import { MongooseModule } from "@nestjs/mongoose";
 import { ScheduleModule } from "@nestjs/schedule";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
@@ -12,9 +13,10 @@ import { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import Joi from "joi";
 import { BullmqConfig } from "./configs/bullmq.config";
 import { CacheModuleConfig } from "./configs/cache-module.config";
+import { JwtModuleConfig } from "./configs/jwt-module.config";
 import { MongooseConfig } from "./configs/mongoose.config";
 import { ThrottlerConfig } from "./configs/throttler.config";
-import { StuffModule } from "./modules/business-layer/stuff/stuff.module";
+import { UserManagementModule } from "./modules/business-layer/user-management/user-management.module";
 import { DataLayerModule } from "./modules/data-layer/data-layer.module";
 import { DrizzleQueryBuilderSyntax } from "./modules/data-layer/drizzle.decorator";
 import { AuthModule } from "./modules/internal-layer/auth/auth.module";
@@ -39,6 +41,7 @@ import { PostgresExceptionFilter } from "./shared/exception-filters/postgres-exc
         COMPANY_EMAIL: Joi.string().email().required(),
         SERVER_PORT: Joi.number().min(0).max(65535).default(3000),
         NODE_ENV: Joi.string().valid("development", "production").required(),
+        ACCOUNT_ACTIVATION_CODE_VALIDITY_DURATION: Joi.string().required(),
         JWT_SECRET: Joi.string().required(),
         DATABASE_URL: Joi.string().required(),
         LOGGING_DATABASE_URL: Joi.string().required(),
@@ -57,6 +60,7 @@ import { PostgresExceptionFilter } from "./shared/exception-filters/postgres-exc
     }),
 
     MongooseModule.forRootAsync({ useClass: MongooseConfig }),
+    JwtModule.registerAsync({ global: true, useClass: JwtModuleConfig }),
     ThrottlerModule.forRootAsync({ useClass: ThrottlerConfig }),
     CacheModule.registerAsync({ isGlobal: true, useClass: CacheModuleConfig }),
     BullModule.forRootAsync({ useClass: BullmqConfig }),
@@ -72,8 +76,9 @@ import { PostgresExceptionFilter } from "./shared/exception-filters/postgres-exc
     // Data
     DataLayerModule,
 
+    UserManagementModule
+
     //Business
-    StuffModule
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
