@@ -1,6 +1,6 @@
 import { ValidationOptions, registerDecorator } from "class-validator";
 
-export function IsTimeFormat(validationOptions?: ValidationOptions) {
+export function IsValidTime(validationOptions?: ValidationOptions) {
   return function (object: object, propertyName: string) {
     registerDecorator({
       name: "isTimeFormat",

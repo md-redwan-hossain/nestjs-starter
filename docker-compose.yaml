@@ -6,26 +6,26 @@ services:
     environment:
       POSTGRESQL_USERNAME: super-admin
       POSTGRESQL_PASSWORD: super-password
-      POSTGRESQL_DATABASE: starter
+      POSTGRESQL_DATABASE: nest_starter
       POSTGRESQL_TIMEZONE: "Asia/Dhaka"
     ports:
-      - "5431:5432"
+      - "5435:5432"
     volumes:
-      - "postgres_data:/bitnami/postgresql"
+      - "postgres_data_nest_starter:/bitnami/postgresql"
 
   mongo_db:
     image: "bitnami/mongodb:7.0"
     restart: unless-stopped
     ports:
-      - "27016:27017"
+      - "27018:27017"
     volumes:
-      - "mongo_data:/bitnami/mongodb"
+      - "mongo_data_nest_starter:/bitnami/mongodb"
     environment:
       - ALLOW_EMPTY_PASSWORD=no
       - MONGODB_ROOT_PASSWORD=root-password
       - MONGODB_USERNAME=super-admin
       - MONGODB_PASSWORD=super-password
-      - MONGODB_DATABASE=starter
+      - MONGODB_DATABASE=nest_starter
 
   redis_db:
     image: "bitnami/redis:7.2"
@@ -33,14 +33,14 @@ services:
     ports:
       - "6377:6379"
     volumes:
-      - "redis_data:/bitnami/redis/data"
+      - "redis_data_nest_starter:/bitnami/redis/data"
     environment:
-      REDIS_PASSWORD: admin
+      REDIS_PASSWORD: super-admin
       REDIS_IO_THREADS: 4
       REDIS_IO_THREADS_DO_READS: yes
       REDIS_DISABLE_COMMANDS: FLUSHDB,FLUSHALL
 
 volumes:
-  postgres_data:
-  redis_data:
-  mongo_data:
+  postgres_data_nest_starter:
+  redis_data_nest_starter:
+  mongo_data_nest_starter:

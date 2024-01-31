@@ -1,7 +1,7 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import { Transform } from "class-transformer";
 import { IsBooleanString, IsDateString, IsIn, IsOptional, IsString, Length } from "class-validator";
-import { IsTimeFormat } from "../../../../shared/decorators/is-time-format.decorator";
+import { IsValidTime } from "../../../../shared/decorators/is-valid-time.decorator";
 import { PaginationDto } from "../../../../shared/dto/pagination.dto";
 import { LevelOfLog } from "../../../../shared/enums/level-of-log.enum";
 
@@ -25,7 +25,7 @@ export class QueryLoggingDto extends PaginationDto {
     description: "should be in the format 'hh:mm AM/PM'",
     example: "05:15 AM"
   })
-  @IsTimeFormat()
+  @IsValidTime()
   @Length(8, 8)
   @IsString()
   @Transform(({ value }) => value?.trim())

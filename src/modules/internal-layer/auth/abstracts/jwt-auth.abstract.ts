@@ -1,4 +1,3 @@
-import { UUID } from "crypto";
 import { USER_ROLE } from "../../../../shared/enums/user-role.enum";
 
 export abstract class AbstractJwtAuthService {
