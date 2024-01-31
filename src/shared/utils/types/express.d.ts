@@ -6,9 +6,9 @@ declare global {
     interface Request {
       jwt?: string;
       user: {
-        Id?: string | UUID;
-        Role?: USER_ROLE;
-        Env?: "development" | "production";
+        id?: string | UUID;
+        role?: USER_ROLE;
+        env?: "development" | "production";
         iat?: string;
         exp?: string;
       };
