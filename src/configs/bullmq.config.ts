@@ -3,8 +3,8 @@ import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { QueueOptions } from "bullmq";
 import { EnvVariable } from "../shared/enums/env-variable.enum";
-import { defaultRedisConnectionOptions } from "../shared/utils/helpers/default-redis-connection-options";
-import { redisUrlParser } from "../shared/utils/helpers/redis-utils";
+import { defaultRedisConnectionOptions } from "../shared/helpers/default-redis-connection-options";
+import { redisUrlParser } from "../shared/helpers/redis-utils";
 
 @Injectable()
 export class BullmqConfig implements SharedBullConfigurationFactory {

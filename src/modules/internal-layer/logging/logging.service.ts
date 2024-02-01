@@ -3,9 +3,9 @@ import { InjectModel } from "@nestjs/mongoose";
 import dayjs from "dayjs";
 import { Model } from "mongoose";
 import { TimeFormat } from "../../../shared/enums/time-format.enum";
-import { calculatePagination } from "../../../shared/utils/helpers/calculate-pagination";
 import { QueryLoggingDto } from "./dto/query-logging.dto";
 import { Logging, LoggingDocument } from "./enitities/logging.entity";
+import { calculatePagination } from "../../../shared/helpers/calculate-pagination";
 
 @Injectable()
 export class LoggingService {

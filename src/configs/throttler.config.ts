@@ -3,8 +3,8 @@ import { ConfigService } from "@nestjs/config";
 import { ThrottlerModuleOptions, ThrottlerOptionsFactory, seconds } from "@nestjs/throttler";
 import { ThrottlerStorageRedisService } from "nestjs-throttler-storage-redis";
 import { EnvVariable } from "../shared/enums/env-variable.enum";
-import { defaultRedisConnectionOptions } from "../shared/utils/helpers/default-redis-connection-options";
-import { redisUrlParser } from "../shared/utils/helpers/redis-utils";
+import { defaultRedisConnectionOptions } from "../shared/helpers/default-redis-connection-options";
+import { redisUrlParser } from "../shared/helpers/redis-utils";
 
 @Injectable()
 export class ThrottlerConfig implements ThrottlerOptionsFactory {
