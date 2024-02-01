@@ -138,13 +138,13 @@ export function JwtRbacAuth(roles: USER_ROLE[]) {
 }
 ```
 
-**`@UserId()`**: This custom decorator doesnot take any argument. It must be used with `JwtRbacAuth` or `UseGuards(JwtAuthGuard)` because it fetches `user.Id` from `request` object. Simply call it in any controller route handler method argument. Example:
+**`@UserId()`**: This custom decorator doesnot take any argument. It must be used with `JwtRbacAuth` or `UseGuards(JwtAuthGuard)` because it fetches `user.id` from `request` object. Simply call it in any controller route handler method argument. Example:
 
 ```typescript
 async findOne(@UserId() id: string) { }
 ```
 
-**`@UserData(data: "Id"|"Role")`**: This custom decorator takes `"Id"` or `"Role"` as argument. It must be used with `JwtRbacAuth` or `UseGuards(JwtAuthGuard)` because it fetches `"Id"` or `"Role"` from `request.user` object. Simply call it in any controller route handler method argument. Example:
+**`@UserData(data: "id"|"role")`**: This custom decorator takes `"id"` or `"role"` as argument. It must be used with `JwtRbacAuth` or `UseGuards(JwtAuthGuard)` because it fetches `"id"` or `"role"` from `request.user` object. Simply call it in any controller route handler method argument. Example:
 
 ```typescript
 async findOne(@UserData("role") role: string) { }
