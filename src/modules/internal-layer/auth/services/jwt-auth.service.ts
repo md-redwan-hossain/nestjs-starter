@@ -5,11 +5,11 @@ import { JwtService } from "@nestjs/jwt";
 import { Cache } from "cache-manager";
 import { UUID } from "crypto";
 import { EnvVariable } from "../../../../shared/enums/env-variable.enum";
-import { AbstractJwtAuthService } from "../abstracts/jwt-auth.abstract";
+import { IJwtAuthService } from "../interfaces/jwt-auth.interface";
 import { USER_ROLE } from "../../../../shared/enums/user-role.enum";
 
 @Injectable()
-export class JwtAuthService implements AbstractJwtAuthService {
+export class JwtAuthService implements IJwtAuthService {
   constructor(
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,

@@ -1,5 +1,4 @@
 import { Injectable } from "@nestjs/common";
-import bcrypt from "bcrypt";
 import {
   Totp,
   TotpOptions,
@@ -8,12 +7,15 @@ import {
   generateBackupCodes,
   generateUrl
 } from "time2fa";
-import { AbstractTwoFactorAuthService } from "../abstracts/two-factor-auth.abstract";
-import { CryptographyService } from "./cryptography.service";
+import { ICryptographyService } from "../../cryptography/cryptography-service.interface";
+import { InjectCryptographyService } from "../../cryptography/cryptography.decorator";
+import { ITwoFactorAuthService } from "../interfaces/two-factor-auth.interface";
 
 @Injectable()
-export class TwoFactorAuthService implements AbstractTwoFactorAuthService {
-  constructor(private readonly cryptographyService: CryptographyService) {}
+export class TwoFactorAuthService implements ITwoFactorAuthService {
+  constructor(
+    @InjectCryptographyService() private readonly cryptographyService: ICryptographyService
+  ) {}
 
   async encryptTotpKey(key: string, encryptor: string): Promise<string> {
     return await this.cryptographyService.encrypt(key, encryptor);
@@ -63,7 +65,7 @@ export class TwoFactorAuthService implements AbstractTwoFactorAuthService {
     const hashedKeys: string[] = [];
 
     for (const elem of rawKeys) {
-      hashedKeys.push(await bcrypt.hash(elem, 8));
+      hashedKeys.push(await this.cryptographyService.hash(elem, 8));
     }
 
     return hashedKeys;

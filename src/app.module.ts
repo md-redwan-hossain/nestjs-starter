@@ -1,6 +1,6 @@
 import { BullModule } from "@nestjs/bullmq";
 import { CacheModule } from "@nestjs/cache-manager";
-import { Module, OnModuleInit } from "@nestjs/common";
+import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { APP_FILTER, APP_GUARD } from "@nestjs/core";
 import { EventEmitterModule } from "@nestjs/event-emitter";
@@ -8,8 +8,6 @@ import { JwtModule } from "@nestjs/jwt";
 import { MongooseModule } from "@nestjs/mongoose";
 import { ScheduleModule } from "@nestjs/schedule";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
-import { sql } from "drizzle-orm";
-import { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import Joi from "joi";
 import { BullmqConfig } from "./configs/bullmq.config";
 import { CacheModuleConfig } from "./configs/cache-module.config";
@@ -18,7 +16,6 @@ import { MongooseConfig } from "./configs/mongoose.config";
 import { ThrottlerConfig } from "./configs/throttler.config";
 import { UserManagementModule } from "./modules/business-layer/user-management/user-management.module";
 import { DataLayerModule } from "./modules/data-layer/data-layer.module";
-import { DrizzleQueryBuilderSyntax } from "./modules/data-layer/drizzle.decorator";
 import { AuthModule } from "./modules/internal-layer/auth/auth.module";
 import { EmailSenderModule } from "./modules/internal-layer/email-sender/email-sender.module";
 import { HealthCheckerModule } from "./modules/internal-layer/health-checker/health-checker.module";
@@ -28,6 +25,7 @@ import { JsonWebTokenExceptionFilter } from "./shared/exception-filters/jsonwebt
 import { MongoExceptionFilter } from "./shared/exception-filters/mongo-exception.filter";
 import { MongooseExceptionFilter } from "./shared/exception-filters/mongoose-exception.filter";
 import { PostgresExceptionFilter } from "./shared/exception-filters/postgres-exception.filter";
+import { CryptographyModule } from "./modules/internal-layer/cryptography/cryptography.module";
 
 @Module({
   imports: [
@@ -72,13 +70,13 @@ import { PostgresExceptionFilter } from "./shared/exception-filters/postgres-exc
     HealthCheckerModule,
     EmailSenderModule,
     AuthModule,
+    CryptographyModule,
 
     // Data
     DataLayerModule,
 
-    UserManagementModule
-
     //Business
+    UserManagementModule
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
@@ -89,10 +87,4 @@ import { PostgresExceptionFilter } from "./shared/exception-filters/postgres-exc
     { provide: APP_FILTER, useClass: JsonWebTokenExceptionFilter }
   ]
 })
-export class AppModule implements OnModuleInit {
-  constructor(@DrizzleQueryBuilderSyntax() private readonly db: PostgresJsDatabase) {}
-
-  async onModuleInit() {
-    await this.db.execute(sql<number>`select 1 as ping`);
-  }
-}
+export class AppModule {}

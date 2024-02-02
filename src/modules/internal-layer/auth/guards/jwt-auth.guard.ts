@@ -3,14 +3,15 @@ import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import { Request } from "express";
 import { EnvVariable } from "../../../../shared/enums/env-variable.enum";
-import { AbstractJwtAuthService } from "../abstracts/jwt-auth.abstract";
+import { InjectJwtAuthService } from "../decorators/auth.decorator";
+import { IJwtAuthService } from "../interfaces/jwt-auth.interface";
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   constructor(
+    @InjectJwtAuthService() private readonly jwtAuthService: IJwtAuthService,
     private readonly jwtService: JwtService,
-    private readonly configService: ConfigService,
-    private readonly jwtAuthService: AbstractJwtAuthService
+    private readonly configService: ConfigService
   ) {}
 
   private extractTokenFromHeader(request: Request): string | null {
