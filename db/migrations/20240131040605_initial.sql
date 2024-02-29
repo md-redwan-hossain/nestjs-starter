@@ -1,15 +1,16 @@
 -- migrate:up
-CREATE TYPE gender AS ENUM ('male', 'female', 'others');
-
 CREATE TABLE IF NOT EXISTS users (
   id BIGSERIAL PRIMARY KEY,
   user_name VARCHAR(256) NOT NULL UNIQUE,
-  password TEXT,
+  password TEXT NOT NULL,
   full_name VARCHAR(256) NOT NULL,
   phone_number VARCHAR(30) UNIQUE,
   email VARCHAR(256) UNIQUE,
-  gender gender NOT NULL,
+  gender CHAR(1) NOT NULL CHECK (gender IN ('m', 'f', 'o')),
   profile_picture_id UUID,
+  image_file_extension VARCHAR(4) CHECK (
+    image_file_extension IN ('png', 'jpg', 'jpeg', 'webp', 'gif')
+  ),
   authenticator_key TEXT,
   recovery_codes TEXT [],
   is_lockout_enabled BOOLEAN NOT NULL DEFAULT FALSE,
@@ -23,17 +24,23 @@ CREATE TABLE IF NOT EXISTS users (
     OR users.phone_number IS NOT NULL
   ),
   CONSTRAINT "ensure valid email confirmation status" CHECK (
-    users.email IS NULL
-    AND users.is_email_confirmed = FALSE
+    NOT (
+      users.is_email_confirmed = TRUE
+      AND users.email IS NULL
+    )
   ),
   CONSTRAINT "ensure valid phone number confirmation status" CHECK (
-    users.phone_number IS NULL
-    AND users.is_phone_confirmed = FALSE
+    NOT (
+      users.is_phone_confirmed = TRUE
+      AND users.phone_number IS NULL
+    )
   ),
   CONSTRAINT "ensure valid 2fa enabled status" CHECK (
-    users.authenticator_key IS NULL
-    AND users.recovery_codes IS NULL
-    AND users.is_2fa_enabled = FALSE
+    NOT (
+      users.authenticator_key IS NULL
+      AND users.recovery_codes IS NULL
+      AND users.is_2fa_enabled = TRUE
+    )
   )
 );
 
